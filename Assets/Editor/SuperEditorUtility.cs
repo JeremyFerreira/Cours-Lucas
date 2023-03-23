@@ -21,4 +21,20 @@ public static class SuperEditorUtility
         }
         return instances;
     }
+
+
+    
+}
+public class GUIColorScope : GUI.Scope
+{
+    Color previousColor;
+    public GUIColorScope(Color color)
+    {
+        previousColor = GUI.color;
+        GUI.color = color;
+    }
+    protected override void CloseScope()
+    {
+        GUI.color = previousColor;
+    }
 }

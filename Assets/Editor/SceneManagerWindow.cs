@@ -7,11 +7,17 @@ using UnityEditor.Build.Content;
 using UnityEngine.SceneManagement;
 using System;
 using System.IO;
+using UnityEditor.SceneManagement;
 
 public class SceneManagerWindow : EditorWindow
 {
     private SceneAsset[] scenes = new SceneAsset[0];
     bool renameMode = false;
+    public Vector2 scrollPos = Vector2.zero;
+    const float NameWidth = 100f;
+    const float BuildIndexWidth = 80f;
+    const float LoadWidth = 50f;
+    const float SelectWidth = 50f;
 
     // ----------------------------------------------------
     [MenuItem("Tools/Scene Manager")]
@@ -23,18 +29,18 @@ public class SceneManagerWindow : EditorWindow
     }
     private void OnGUI()
     {
-        using(var scope = new EditorGUILayout.HorizontalScope())
+        using (var _horizontalScope = new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
         {
             GUILayout.FlexibleSpace();
 
-            if (GUILayout.Button(EditorGUIUtility.IconContent("refresh.png").image, GUILayout.Width(30f), GUILayout.Height(30f)))
+            if (GUILayout.Button(EditorGUIUtility.IconContent("refresh.png").image, EditorStyles.toolbarButton,GUILayout.Width(30f)))
             {
                 scenes = SuperEditorUtility.LoadAssets<SceneAsset>();
                 //Sort 
-                Array.Sort( scenes, (a, b) => 
+                Array.Sort(scenes, (a, b) =>
                 {
-                    return GetBuildIndex(a).CompareTo(GetBuildIndex(b)); 
-                } );
+                    return GetBuildIndex(a).CompareTo(GetBuildIndex(b));
+                });
 
 
                 int GetBuildIndex(SceneAsset scene)
@@ -43,25 +49,27 @@ public class SceneManagerWindow : EditorWindow
                     return SceneUtility.GetBuildIndexByScenePath(path);
                 }
             }
-            if(GUILayout.Button(EditorGUIUtility.IconContent("edit.png").image, GUILayout.Width(30f), GUILayout.Height(30f)))
+            if (GUILayout.Button(EditorGUIUtility.IconContent("edit.png").image, EditorStyles.toolbarButton, GUILayout.Width(30f)))
             {
                 renameMode = !renameMode;
             }
         }
-
-        
-        
-        var sceneInBuild = EditorBuildSettings.scenes;
-
-        EditorGUI.DrawRect(EditorGUILayout.GetControlRect(false, 1f), Color.gray);
-
-        for(int i=0;i<scenes.Length;i++)
+        using (var scrollScope = new EditorGUILayout.ScrollViewScope(scrollPos))
         {
-            using (var scope = new EditorGUILayout.HorizontalScope())
-            {
-                DrawScene(scenes[i], sceneInBuild);
-            }
+            scrollPos = scrollScope.scrollPosition;
+
+            var sceneInBuild = EditorBuildSettings.scenes;
+
             EditorGUI.DrawRect(EditorGUILayout.GetControlRect(false, 1f), Color.gray);
+
+            for(int i=0;i<scenes.Length;i++)
+            {
+                using (var scope = new EditorGUILayout.HorizontalScope())
+                {
+                    DrawScene(scenes[i], sceneInBuild);
+                }
+                EditorGUI.DrawRect(EditorGUILayout.GetControlRect(false, 1f), Color.gray);
+            }
         }
     }
 
@@ -75,7 +83,7 @@ public class SceneManagerWindow : EditorWindow
 
         if(renameMode)
         {
-            string name = EditorGUILayout.DelayedTextField(scene.name);
+            string name = EditorGUILayout.DelayedTextField(scene.name, GUILayout.Width(NameWidth));
             if(name!=scene.name)
             {
                 AssetDatabase.RenameAsset(path, path.Replace(path,name));
@@ -86,14 +94,14 @@ public class SceneManagerWindow : EditorWindow
             EditorGUILayout.LabelField(scene.name);
         }
 
-        GUILayout.FlexibleSpace();
+        //GUILayout.FlexibleSpace();
 
 
         //build index
         int index = SceneUtility.GetBuildIndexByScenePath(path);
         if(index == -1)
         {
-            if (GUILayout.Button("Add to Build", GUILayout.Width(150f), GUILayout.Height(30f)))
+            if (GUILayout.Button("Add to Build", GUILayout.Width(BuildIndexWidth), GUILayout.Height(20f)))
             {
                 int _matchIndex = Array.FindIndex(buildScenes, scene => scene.path == path);
                 if (_matchIndex != -1)
@@ -109,8 +117,69 @@ public class SceneManagerWindow : EditorWindow
         }
         else
         {
-            EditorGUILayout.LabelField(index.ToString());
+            EditorGUILayout.LabelField(index.ToString(), GUILayout.Width(20f));
+            
+            if(GUILayout.Button("Remove", GUILayout.Width(BuildIndexWidth), GUILayout.Height(20f)))
+            {
+                ArrayUtility.RemoveAt(ref buildScenes, index);
+                EditorBuildSettings.scenes = buildScenes;
+            }
         }
+
+        Scene myScene = SceneManager.GetSceneByPath(path);
+        
+        //buttons
+        if (myScene.isLoaded)
+        {
+            if (EditorSceneManager.loadedRootSceneCount >1 )
+            {
+                using (new GUIColorScope(Color.red))
+                {
+                    if (GUILayout.Button("close", GUILayout.Width(LoadWidth)))
+                    {
+                        EditorSceneManager.CloseScene(myScene, true);
+                    }
+                }
+            }
+            else
+            {
+                GUILayout.Space(LoadWidth + 3f);
+            }
+        }
+        else
+        {
+            using (new GUIColorScope(Color.green))
+            {
+                if (GUILayout.Button("open", GUILayout.Width(LoadWidth)))
+                {
+
+                    OpenSceneMode mode = OpenSceneMode.Single;
+                    int result = EditorUtility.DisplayDialogComplex("Open Scene", "How to open this scene ?", "Single", "Cancel", "Additive");
+                    switch (result)
+                    {
+                        case 0:
+                            mode = OpenSceneMode.Single;
+                            break;
+                        case 2:
+                            mode = OpenSceneMode.Additive;
+                            break;
+                        default:
+                            break;
+
+                    }
+
+                    EditorSceneManager.OpenScene(path, mode);
+                }
+            }
+        }
+
+        using (new GUIColorScope(Color.cyan))
+        {
+            if (GUILayout.Button("select", GUILayout.Width(SelectWidth)))
+                EditorGUIUtility.PingObject(scene);
+        }
+        
+
         GUILayout.Space(20f);
 
     }
