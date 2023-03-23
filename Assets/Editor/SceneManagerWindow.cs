@@ -98,7 +98,7 @@ public class SceneManagerWindow : EditorWindow
                 int _matchIndex = Array.FindIndex(buildScenes, scene => scene.path == path);
                 if (_matchIndex != -1)
                 {
-                    buildScenes[index].enabled = true;
+                    buildScenes[_matchIndex].enabled = true;
                 }
                 else
                 {
